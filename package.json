@@ -1,0 +1,23 @@
+{
+  "name": "liveblocks-sync-km",
+  "version": "1.0.0",
+  "description": "Azure Function to read Liveblocks storage and sync to external REST API",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "func start",
+    "build": "echo 'No build step required'",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "@liveblocks/node": "^3.15.5",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
