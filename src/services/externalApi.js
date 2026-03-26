@@ -2,12 +2,10 @@ import axios from "axios";
 
 /**
  * Sends Liveblocks storage data to the external REST API.
- * @param {object} storageData - The storage data from Liveblocks
- * @param {{ appId: string, projectId: string, roomId: string, updatedAt: string, type: string }} meta - Event metadata from the request body
  * @param {object} context - Azure Function context for logging
  * @returns {Promise<object>} Response from the external API
  */
-export async function sendToExternalApi(storageData, { appId, projectId, roomId, updatedAt, type }, context) {
+export async function sendToExternalApi(context) {
   const apiUrl = process.env.EXTERNAL_API_URL;
   const apiKey = process.env.EXTERNAL_API_KEY;
 
@@ -18,13 +16,14 @@ export async function sendToExternalApi(storageData, { appId, projectId, roomId,
   context.log(`Sending storage data to external API: ${apiUrl}`);
 
   const payload = {
-    type,
-    data: {
-      appId,
-      projectId,
-      roomId,
-      updatedAt,
-      storage: storageData,
+    title: "New composite node name",
+    description: "New description composite name",
+    status: "in_progress",
+    left_data: {
+      new_key: "New left data",
+    },
+    right_data: {
+      new_key: "New right data",
     },
   };
 
