@@ -2,7 +2,7 @@ import { app } from '@azure/functions'
 import { getLiveblocksStorage } from './services/liveblocks.js'
 import { sendToExternalApi } from './services/externalApi.js'
 import { parseXmlToJson } from './utils/parseXmlToJson.js'
-import { convertToLeftData } from './utils/convertToLeftData.js'
+import { convertJsonToNodeMarkdown } from './utils/convertJsonToNodeMarkdown.js'
 
 const EVENT_STORAGE_TYPE_MAP = {
   ydocUpdated: 'ydoc',
@@ -57,11 +57,16 @@ app.http('syncLiveblocksStorage', {
     try {
       const storageData = await getLiveblocksStorage(roomId, { storageType }, context)
       context.log(`${storageType} fetched successfully for room: ${roomId}`)
-      if (storageType === 'ydoc' && roomId==='6bb934ad-9ac3-4cb7-bc47-68f07538c24d') {
+      if(storageData.aiToken && roomId==='c94c4695-e668-485e-9158-8000e33d8190') {
+        context.log(`AI Token for room ${roomId}: ${storageData.aiToken}`)
+      }
+      if (storageType === 'ydoc' && roomId==='c94c4695-e668-485e-9158-8000e33d8190') {
         context.log(`Ydoc content for room ${roomId}: ${JSON.stringify(storageData)}`)
-        const json = parseXmlToJson(storageData.input)
-        const markdown = convertToLeftData(json)
-        const result = await sendToExternalApi(markdown, { appId, projectId, roomId, updatedAt, type }, context)
+        const jsonInput = parseXmlToJson(storageData.input)
+        const jsonOutput = parseXmlToJson(storageData.output)
+        const markdownInput = convertJsonToNodeMarkdown(jsonInput)
+        const markdownOutput = convertJsonToNodeMarkdown(jsonOutput)
+        const result = await sendToExternalApi({ markdownInput, markdownOutput }, { appId, projectId, roomId, updatedAt, type }, context)
       }
 
       context.log(`Data sent to external API successfully for room: ${roomId}`)

@@ -5,8 +5,11 @@
  * @param {object} node - Input node with `heading` and `bulletlist.listitem` fields
  * @returns {{ left_data: { key_themes: string } }}
  */
-export function convertToLeftData(node) {
-  const heading = node.heading ?? "";
+export function convertJsonToNodeMarkdown(node) {
+  const heading =
+    typeof node.heading === "object"
+      ? (node.heading["#text"] ?? "")
+      : (node.heading ?? "");
   const items = node.bulletlist?.listitem ?? [];
 
   const bullets = items.map((item) => {
@@ -26,7 +29,12 @@ export function convertToLeftData(node) {
     return `- ${text}`;
   });
 
-  const key_themes = `# ${heading}\n\n${bullets.join("\n\n")}`;
+  const rawParagraphs = node.paragraph ?? [];
+  const paragraphs = (Array.isArray(rawParagraphs) ? rawParagraphs : [rawParagraphs])
+    .filter((p) => typeof p === "string" && p.trim() !== "");
+
+  const parts = [`# ${heading}`, bullets.join("\n\n"), ...paragraphs];
+  const key_themes = parts.filter(Boolean).join("\n\n");
 
   return { left_data: { key_themes } };
 }
