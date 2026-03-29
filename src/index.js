@@ -1,38 +1,48 @@
 import { app } from '@azure/functions'
+import { WebhookHandler } from '@liveblocks/node'
 import { getLiveblocksStorage } from './services/liveblocks.js'
 import { sendToExternalApi } from './services/externalApi.js'
 import { parseXmlToJson } from './utils/parseXmlToJson.js'
 import { convertJsonToNodeMarkdown } from './utils/convertJsonToNodeMarkdown.js'
 
-const EVENT_STORAGE_TYPE_MAP = {
-  ydocUpdated: 'ydoc',
-  storageUpdated: 'storage'
-}
-
+const webhookYDocHandler = new WebhookHandler(process.env.LIVEBLOCKS_WEBHOOK_YDOC_SECRET)
+const webhookStorageHandler = new WebhookHandler(process.env.LIVEBLOCKS_WEBHOOK_STORAGE_SECRET)
 app.http('syncLiveblocksStorage', {
   methods: ['POST'],
   authLevel: 'function',
-  route: 'sync',
+  route: 'sync/{storageType}',
   handler: async (request, context) => {
-    let body
+    const storageType = request.params.storageType
+
+    const VALID_STORAGE_TYPES = ['ydoc', 'storage']
+    if (!storageType || !VALID_STORAGE_TYPES.includes(storageType)) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: `Invalid storageType '${storageType}'. Supported types: ${VALID_STORAGE_TYPES.join(', ')}`
+        }
+      }
+    }
+
+    const rawBody = await request.text()
+
+    const handler = storageType === 'ydoc' ? webhookYDocHandler : webhookStorageHandler
+
+    let event
     try {
-      body = await request.json()
-    } catch {
+      event = handler.verifyRequest({
+        headers: request.headers,
+        rawBody,
+      })
+    } catch (err) {
+      context.log(`Webhook verification failed: ${err.message}`)
       return {
         status: 400,
-        jsonBody: { error: 'Request body must be valid JSON' }
+        jsonBody: { error: 'Could not verify webhook call' }
       }
     }
 
-    const { type, data } = body
-
-    if (!type || !data) {
-      return {
-        status: 400,
-        jsonBody: { error: "Request body must include 'type' and 'data' fields" }
-      }
-    }
-
+    const { type, data } = event
     const { appId, projectId, roomId, updatedAt } = data
 
     if (!roomId) {
@@ -42,34 +52,22 @@ app.http('syncLiveblocksStorage', {
       }
     }
 
-    const storageType = EVENT_STORAGE_TYPE_MAP[type]
-    if (!storageType) {
-      return {
-        status: 400,
-        jsonBody: {
-          error: `Unsupported event type '${type}'. Supported types: ${Object.keys(EVENT_STORAGE_TYPE_MAP).join(', ')}`
-        }
-      }
-    }
-
     context.log(`Event: ${type} | Room: ${roomId} | StorageType: ${storageType}`)
 
     try {
       const storageData = await getLiveblocksStorage(roomId, { storageType }, context)
       context.log(`${storageType} fetched successfully for room: ${roomId}`)
-      if(storageData.aiToken && roomId==='c94c4695-e668-485e-9158-8000e33d8190') {
-        context.log(`AI Token for room ${roomId}: ${storageData.aiToken}`)
-      }
-      if (storageType === 'ydoc' && roomId==='c94c4695-e668-485e-9158-8000e33d8190') {
-        context.log(`Ydoc content for room ${roomId}: ${JSON.stringify(storageData)}`)
-        const jsonInput = parseXmlToJson(storageData.input)
-        const jsonOutput = parseXmlToJson(storageData.output)
-        const markdownInput = convertJsonToNodeMarkdown(jsonInput)
-        const markdownOutput = convertJsonToNodeMarkdown(jsonOutput)
-        const result = await sendToExternalApi({ markdownInput, markdownOutput }, { appId, projectId, roomId, updatedAt, type }, context)
-      }
 
-      context.log(`Data sent to external API successfully for room: ${roomId}`)
+      let result
+      if (storageType === 'ydoc' && roomId==='liveblocks:examples:nextjs-yjs-tiptap') {
+            context.log(`${storageType} fetched successfully for room: ${roomId}`)
+        // const jsonInput = parseXmlToJson(storageData.input)
+        // const jsonOutput = parseXmlToJson(storageData.output)
+        // const markdownInput = convertJsonToNodeMarkdown(jsonInput)
+        // const markdownOutput = convertJsonToNodeMarkdown(jsonOutput)
+        // result = await sendToExternalApi({ markdownInput, markdownOutput }, { appId, projectId, roomId, updatedAt, type }, context)
+        // context.log(`Data sent to external API successfully for room: ${roomId}`)
+      }
 
       return {
         status: 200,
