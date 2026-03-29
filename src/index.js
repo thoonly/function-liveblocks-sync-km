@@ -3,7 +3,7 @@ import { WebhookHandler } from '@liveblocks/node'
 import { getLiveblocksStorage } from './services/liveblocks.js'
 import { sendToExternalApi } from './services/externalApi.js'
 import { parseXmlToJson } from './utils/parseXmlToJson.js'
-import { convertJsonToNodeMarkdown } from './utils/convertJsonToNodeMarkdown.js'
+import { convertJsonToKeyThemes, convertJsonToNodeSummary} from './utils/convertJsonToNodeMarkdown.js'
 
 const webhookYDocHandler = new WebhookHandler(process.env.LIVEBLOCKS_WEBHOOK_YDOC_SECRET)
 const webhookStorageHandler = new WebhookHandler(process.env.LIVEBLOCKS_WEBHOOK_STORAGE_SECRET)
@@ -59,13 +59,14 @@ app.http('syncLiveblocksStorage', {
       context.log(`${storageType} fetched successfully for room: ${roomId}`)
 
       let result
-      if (storageType === 'ydoc' && roomId==='liveblocks:examples:nextjs-yjs-tiptap') {
+      if (storageType === 'ydoc' && roomId==='08c200c2-45a3-4671-8f18-7aafa0e0c734') {
             context.log(`${storageType} fetched successfully for room: ${roomId}`)
-        // const jsonInput = parseXmlToJson(storageData.input)
-        // const jsonOutput = parseXmlToJson(storageData.output)
-        // const markdownInput = convertJsonToNodeMarkdown(jsonInput)
-        // const markdownOutput = convertJsonToNodeMarkdown(jsonOutput)
-        // result = await sendToExternalApi({ markdownInput, markdownOutput }, { appId, projectId, roomId, updatedAt, type }, context)
+        const jsonInput = parseXmlToJson(storageData.input)
+        const jsonOutput = parseXmlToJson(storageData.output)
+        const accssToken = storageData.encryptToken
+        const markdownKeyThemes = convertJsonToKeyThemes(jsonInput)
+        const markdownSummary = convertJsonToNodeSummary(jsonOutput)
+        result = await sendToExternalApi({ keyThemes: markdownKeyThemes, summary: markdownSummary }, { appId, projectId, roomId, updatedAt, type, accssToken }, context)
         // context.log(`Data sent to external API successfully for room: ${roomId}`)
       }
 

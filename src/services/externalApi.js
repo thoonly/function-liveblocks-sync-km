@@ -5,9 +5,9 @@ import axios from 'axios'
  * @param {object} context - Azure Function context for logging
  * @returns {Promise<object>} Response from the external API
  */
-export async function sendToExternalApi(markdown, metadata, context) {
+export async function sendToExternalApi({keyThemes, summary}, metadata, context) {
   const apiUrl = process.env.EXTERNAL_API_URL
-  const apiKey = process.env.EXTERNAL_API_KEY
+
 
   if (!apiUrl) {
     throw new Error('EXTERNAL_API_URL environment variable is not set')
@@ -17,18 +17,18 @@ export async function sendToExternalApi(markdown, metadata, context) {
 
   const payload = {
     left_data: {
-      key_themes: markdown.markdownInput
+      key_themes: keyThemes
     },
     right: {
-      markdown: markdown.markdownOutput
+      markdown: summary
     }
   }
 
   try {
-    const response = await axios.post(apiUrl, payload, {
+    const response = await axios.patch(`${apiUrl}/${metadata.roomId}`, payload, {
       headers: {
         'Content-Type': 'application/json',
-        ...(apiKey && { Authorization: `Bearer ${apiKey}` })
+        ...(metadata.accssToken && { Authorization: `Bearer ${metadata.accssToken}` })
       }
     })
 
