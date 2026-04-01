@@ -3,7 +3,38 @@ import { WebhookHandler } from '@liveblocks/node'
 import { getLiveblocksStorage } from './services/liveblocks.js'
 import { sendToExternalApi } from './services/externalApi.js'
 import { parseXmlToJson } from './utils/parseXmlToJson.js'
-import { convertJsonToKeyThemes, convertJsonToNodeSummary} from './utils/convertJsonToNodeMarkdown.js'
+import { getCustomToken } from './utils/getCustomToken.js'
+import { getYdocStorage, getYjsDocumentAsBinary } from './utils/getYdocStorage.js'
+import { load } from '@azure/app-configuration-provider'
+import { DefaultAzureCredential } from '@azure/identity'
+
+const credential = new DefaultAzureCredential()
+const connectionString = process.env.AZURE_APP_CONFIG_CONNECTION_STRING
+async function loadAzureConfig() {
+  return new Promise(async (resolve, reject) => {
+    let settings
+
+    settings = await load(connectionString, {
+      selectors: [
+        {
+          keyFilter: 'AUTH0_API_CLIENT_SECRET',
+          labelFilter: 'Api'
+        }
+      ],
+      trimKeyPrefixes: ['ConnectionStrings:'],
+      keyVaultOptions: {
+        credential: credential
+      }
+    })
+    const config = settings.constructConfigurationObject({
+      separator: ':'
+    })
+    // console.log(config)
+    resolve(config)
+  })
+}
+
+const config = await loadAzureConfig()
 
 const webhookYDocHandler = new WebhookHandler(process.env.LIVEBLOCKS_WEBHOOK_YDOC_SECRET)
 const webhookStorageHandler = new WebhookHandler(process.env.LIVEBLOCKS_WEBHOOK_STORAGE_SECRET)
@@ -29,16 +60,21 @@ app.http('syncLiveblocksStorage', {
     const handler = storageType === 'ydoc' ? webhookYDocHandler : webhookStorageHandler
 
     let event
-    try {
-      event = handler.verifyRequest({
-        headers: request.headers,
-        rawBody,
-      })
-    } catch (err) {
-      context.log(`Webhook verification failed: ${err.message}`)
-      return {
-        status: 400,
-        jsonBody: { error: 'Could not verify webhook call' }
+    if (process.env.SKIP_WEBHOOK_VERIFY === 'true') {
+      context.log('Webhook verification skipped (SKIP_WEBHOOK_VERIFY=true)')
+      event = JSON.parse(rawBody)
+    } else {
+      try {
+        event = handler.verifyRequest({
+          headers: request.headers,
+          rawBody
+        })
+      } catch (err) {
+        context.log(`Webhook verification failed: ${err.message}`)
+        return {
+          status: 400,
+          jsonBody: { error: 'Could not verify webhook call' }
+        }
       }
     }
 
@@ -55,19 +91,19 @@ app.http('syncLiveblocksStorage', {
     context.log(`Event: ${type} | Room: ${roomId} | StorageType: ${storageType}`)
 
     try {
-      const storageData = await getLiveblocksStorage(roomId, { storageType }, context)
-      context.log(`${storageType} fetched successfully for room: ${roomId}`)
-
       let result
-      if (storageType === 'ydoc' && roomId==='08c200c2-45a3-4671-8f18-7aafa0e0c734') {
-            context.log(`${storageType} fetched successfully for room: ${roomId}`)
-        const jsonInput = parseXmlToJson(storageData.input)
-        const jsonOutput = parseXmlToJson(storageData.output)
-        const accssToken = storageData.encryptToken
-        const markdownKeyThemes = convertJsonToKeyThemes(jsonInput)
-        const markdownSummary = convertJsonToNodeSummary(jsonOutput)
-        result = await sendToExternalApi({ keyThemes: markdownKeyThemes, summary: markdownSummary }, { appId, projectId, roomId, updatedAt, type, accssToken }, context)
-        // context.log(`Data sent to external API successfully for room: ${roomId}`)
+      if (storageType === 'ydoc' && roomId === '19bbef8e-7815-48e3-8882-29db1f2ecc51') {
+        const yjsDocument = await getYjsDocumentAsBinary(roomId)
+        const markdownKeyThemes = await getYdocStorage(yjsDocument, 'input')
+        const markdownSummary = await getYdocStorage(yjsDocument, 'output')
+        const updatedBy = await getYdocStorage(yjsDocument, 'updatedBy')
+        if (updatedBy) {
+          const accssToken = getCustomToken(config, updatedBy)
+          result = await sendToExternalApi({ keyThemes: markdownKeyThemes, summary: markdownSummary }, { appId, projectId, roomId, updatedAt, type, accssToken }, context)
+        }
+      } else if (storageType === 'storage' && roomId === '19bbef8e-7815-48e3-8882-29db1f2ecc51') {
+        const storageData = await getLiveblocksStorage(roomId, { storageType }, context)
+        console.log('Liveblocks storage data:', JSON.stringify(storageData))
       }
 
       return {

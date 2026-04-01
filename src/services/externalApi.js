@@ -5,7 +5,7 @@ import axios from 'axios'
  * @param {object} context - Azure Function context for logging
  * @returns {Promise<object>} Response from the external API
  */
-export async function sendToExternalApi({keyThemes, summary}, metadata, context) {
+export async function sendToExternalApi({keyThemes, summary, updatedBy}, metadata, context) {
   const apiUrl = process.env.EXTERNAL_API_URL
 
 
@@ -19,7 +19,7 @@ export async function sendToExternalApi({keyThemes, summary}, metadata, context)
     left_data: {
       key_themes: keyThemes
     },
-    right: {
+    right_data: {
       markdown: summary
     }
   }
