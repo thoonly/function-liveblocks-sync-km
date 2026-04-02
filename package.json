@@ -36,6 +36,8 @@
     "@tiptap/markdown": "^3.21.0",
     "@tiptap/pm": "^3.21.0",
     "@tiptap/starter-kit": "^3.21.0",
+    "@upstash/redis": "^1.37.0",
+    "@upstash/workflow": "^1.2.0",
     "axios": "^1.6.0",
     "fast-xml-parser": "^5.5.9",
     "jsdom": "^29.0.1",

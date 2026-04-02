@@ -8,10 +8,10 @@ import jwt from 'jsonwebtoken'
  * @returns {string} Signed JWT access token
  */
 export function getCustomToken(config, userId) {
-  const clientSecret = config.AUTH0_API_CLIENT_SECRET
+  const clientSecret = config.BE_JwtM2MStrategy?.SecretKey
 
   if (!clientSecret) {
-    throw new Error('AUTH0_API_CLIENT_SECRET is not set in config')
+    throw new Error('BE_JwtM2MStrategy:SecretKey is not set in config')
   }
 
   if (!userId) {
