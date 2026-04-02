@@ -8,8 +8,6 @@ import { convertLiveblocksToScratchPad } from './utils/getScratchpadStorage.js'
 import { setScratchpadData, getScratchpadData, triggerWorkflow } from './services/upstash.js'
 import { load } from '@azure/app-configuration-provider'
 import { DefaultAzureCredential } from '@azure/identity'
-// import { serve } from '@upstash/workflow'
-// import { Receiver } from '@upstash/qstash'
 
 const credential = new DefaultAzureCredential()
 const connectionString = process.env.AZURE_APP_CONFIG_CONNECTION_STRING
@@ -41,7 +39,7 @@ const config = await loadAzureConfig()
 
 const webhookYDocHandler = new WebhookHandler(process.env.LIVEBLOCKS_WEBHOOK_YDOC_SECRET)
 const webhookStorageHandler = new WebhookHandler(process.env.LIVEBLOCKS_WEBHOOK_STORAGE_SECRET)
- 
+
 app.http('syncLiveblocksStorage', {
   methods: ['POST'],
   authLevel: 'function',
@@ -96,7 +94,7 @@ app.http('syncLiveblocksStorage', {
 
     try {
       let result
-      if (storageType === 'ydoc' && roomId === 'c6cfbbab-6e2b-4822-a4db-a9bde64bdf31') {
+      if (storageType === 'ydoc' && roomId === 'adc3ed3c-c8ae-4097-acc8-227752a3c432') {
         const yjsDocument = await getYjsDocumentAsBinary(roomId)
         const markdownKeyThemes = await getYdocStorage(yjsDocument, 'input')
         const markdownSummary = await getYdocStorage(yjsDocument, 'output')
@@ -105,12 +103,10 @@ app.http('syncLiveblocksStorage', {
           const accssToken = getCustomToken(config, updatedBy)
           result = await sendToExternalApi({ keyThemes: markdownKeyThemes, summary: markdownSummary }, { appId, projectId, roomId, updatedAt, type, accssToken }, context)
         }
-      } else if (storageType === 'storage' && roomId === 'c6cfbbab-6e2b-4822-a4db-a9bde64bdf31') {
+      } else if (storageType === 'storage' && roomId === 'adc3ed3c-c8ae-4097-acc8-227752a3c432') {
         const storageData = await getLiveblocksStorage(roomId, { storageType }, context)
-        const existing = await getScratchpadData(roomId)
         result = convertLiveblocksToScratchPad(storageData, existing)
-        await setScratchpadData(roomId, result)
-        await triggerWorkflow({ roomId, data: result })
+        await triggerWorkflow(roomId, { roomId, data: result })
       }
 
       return {
@@ -139,32 +135,36 @@ app.http('syncLiveblocksStorage', {
   }
 })
 
+import { serve } from '@upstash/workflow'
+import { Receiver } from '@upstash/qstash'
 
-// const receiver = new Receiver({
-//   currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
-//   nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
-// })
+const receiver = new Receiver({
+  currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
+  nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY
+})
 
-// const { handler: workflowHandler } = serve(async (workflowContext) => {
-//   try {
-//     const { roomId,data } = workflowContext.requestPayload
-//     const result = await workflowContext.run('process-scratchpad',async () => {
-//       console.log(data)
-//       return { roomId, processed: true }
-//     })
-//     if (result.return) {
-//       return  
-//     }
+const { handler: workflowHandler } = serve(
+  async (workflowContext) => {
+    try {
+      const { roomId, data } = workflowContext.requestPayload
+      const result = await workflowContext.run('process-scratchpad', async () => {
+        console.log(data)
+        return { roomId, processed: true }
+      })
+      if (result.return) {
+        return
+      }
+    } catch (error) {
+      error.message = `Workflow error: ${error.message}`
+      throw error
+    }
+  },
+  { receiver }
+)
 
-//   } catch (error) {
-//     error.message = `Workflow error: ${error.message}`
-//     throw error
-//   }
-// }, { receiver })
-
-// app.http('unStashWorkflow', {
-//   methods: ['POST'],
-//   authLevel: 'anonymous', // must be anonymous — QStash calls this endpoint directly
-//   route: 'workflow',
-//   handler: workflowHandler
-// })
+app.http('unStashWorkflow', {
+  methods: ['POST'],
+  authLevel: 'anonymous', // must be anonymous — QStash calls this endpoint directly
+  route: 'workflow/{roomId}',
+  handler: workflowHandler
+})

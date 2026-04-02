@@ -21,12 +21,15 @@ export const getScratchpadData = async (roomId) => {
   return await redis.get(key)
 }
 
-export const triggerWorkflow = async (body) => {
+export const triggerWorkflow = async (roomId,body) => {
   return await workflowClient.trigger({
-    url: 'https://superabstract-mariel-persuasive.ngrok-free.dev/api/workflow',
+    url: `https://superabstract-mariel-persuasive.ngrok-free.dev/api/workflow/${roomId}`,
+    label: 'custom-label',
     body,
-    headers: { 'Content-Type': 'application/json', 'Upstash-Feature-Set': 'WF_TriggerOnConfig', 'Upstash-Workflow-Invoke-Count': '0', 'Upstash-Workflow-Sdk-Version': '1' },
-    delay: 1000, // Delay in milliseconds before the workflow is executed
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    delay: '5s', // Delay in seconds before the workflow is executed
     keepTriggerConfig: true
   })
 }

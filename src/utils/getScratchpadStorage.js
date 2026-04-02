@@ -1,4 +1,4 @@
-export const convertLiveblocksToScratchPad = (liveblocks, existingData = null) => {
+export const convertLiveblocksToScratchPad = (liveblocks) => {
   const colorTagMap = {
     "#ff7d69": "Most Priority",
     "#88CEF7": "Backlog",
@@ -16,7 +16,7 @@ export const convertLiveblocksToScratchPad = (liveblocks, existingData = null) =
       updated_at: postIt?.updatedAt
     }))
 
-  const base = existingData ?? { left_data: { scratch_pad: { tags: [], categories: [] } } }
+  const base = { left_data: { scratch_pad: { tags: [], categories: [] } } }
   const scratchPad = base.left_data.scratch_pad
 
   scratchPad.tags = notes.reduce((tags, { tag }) => {
